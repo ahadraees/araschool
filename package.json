@@ -1,0 +1,47 @@
+{
+  "name": "araschool-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ./build.mjs && node --enable-source-maps ./dist/index.mjs",
+    "build": "node ./build.mjs",
+    "start": "node --enable-source-maps ./dist/index.mjs",
+    "db:push": "drizzle-kit push --config ./drizzle.config.ts",
+    "db:seed": "tsx -r dotenv/config src/db/seed-portals.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.1",
+    "drizzle-zod": "^0.8.3",
+    "express": "^5",
+    "express-rate-limit": "^8.3.2",
+    "helmet": "^8.1.0",
+    "node-cron": "^4.2.1",
+    "pg": "^8.20.0",
+    "pino": "^9",
+    "pino-http": "^10",
+    "twilio": "^5.13.1",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/compression": "^1.8.1",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.3.3",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.18.0",
+    "drizzle-kit": "^0.31.9",
+    "esbuild": "^0.27.3",
+    "esbuild-plugin-pino": "^2.3.3",
+    "pino-pretty": "^13",
+    "thread-stream": "3.1.0",
+    "tsx": "4.21.0"
+  }
+}
