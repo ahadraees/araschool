@@ -134,7 +134,7 @@ router.post("/login", async (req: Request, res: Response) => {
   res.cookie("sms_session", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: "/",
   });
@@ -165,7 +165,11 @@ router.post("/logout", async (req: Request, res: Response) => {
   const token = req.cookies?.["sms_session"];
   if (token) {
     await deleteSession(token);
-    res.clearCookie("sms_session", { path: "/" });
+    res.clearCookie("sms_session", {
+      path: "/",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
   }
   res.json({ success: true });
 });

@@ -53,13 +53,17 @@ app.use("/api", apiLimiter);
 
 // ── CORS — allow Replit, localhost, and any custom FRONTEND_URL env var ────────
 // Set FRONTEND_URL=https://yourdomain.com when self-hosting
-const extraOrigin = process.env.FRONTEND_URL?.trim();
+const extraOrigins = (process.env.FRONTEND_URL ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const defaultOrigins = ["https://aranext.pakbooyah.com"];
 app.use(
   cors({
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);                                // same-origin / server-to-server
       if (/replit\.dev$|localhost(:\d+)?$/.test(origin)) return cb(null, true);
-      if (extraOrigin && origin === extraOrigin) return cb(null, true);  // custom domain
+      if ([...defaultOrigins, ...extraOrigins].includes(origin)) return cb(null, true);
       cb(new Error("CORS: origin not allowed"));
     },
     credentials: true,
