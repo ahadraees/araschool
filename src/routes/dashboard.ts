@@ -62,6 +62,32 @@ router.get("/stats", requireAuth, async (req, res) => {
   });
 });
 
+router.get("/admissions", requireAuth, async (req, res) => {
+  const year = req.query.year ? Number(req.query.year) : new Date().getFullYear();
+  const schoolId = req.query.schoolId ? Number(req.query.schoolId) : req.user!.schoolId;
+
+  const conditions: any[] = [eq(studentsTable.isActive, true)];
+  if (schoolId) conditions.push(eq(studentsTable.schoolId, schoolId));
+  conditions.push(sql`EXTRACT(YEAR FROM ${studentsTable.createdAt}) = ${year}`);
+
+  const [result] = await db.select({ count: sql<number>`count(*)` })
+    .from(studentsTable)
+    .where(and(...conditions));
+
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const monthly = await Promise.all(months.map(async (label, idx) => {
+    const m = idx + 1;
+    const conds: any[] = [eq(studentsTable.isActive, true)];
+    if (schoolId) conds.push(eq(studentsTable.schoolId, schoolId));
+    conds.push(sql`EXTRACT(YEAR FROM ${studentsTable.createdAt}) = ${year}`);
+    conds.push(sql`EXTRACT(MONTH FROM ${studentsTable.createdAt}) = ${m}`);
+    const [r] = await db.select({ count: sql<number>`count(*)` }).from(studentsTable).where(and(...conds));
+    return { label, value: Number(r.count) };
+  }));
+
+  res.json({ total: Number(result.count), monthly });
+});
+
 router.get("/attendance-chart", requireAuth, async (req, res) => {
   const month = req.query.month ? Number(req.query.month) : new Date().getMonth() + 1;
   const year = req.query.year ? Number(req.query.year) : new Date().getFullYear();
