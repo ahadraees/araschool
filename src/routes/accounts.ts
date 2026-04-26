@@ -31,14 +31,16 @@ async function getIncomeSum(schoolId: number, from: string, to: string) {
     .from(incomeTable)
     .where(and(eq(incomeTable.schoolId, schoolId), gte(incomeTable.date, from), lte(incomeTable.date, to)));
 
+  // Include both 'paid' and 'partial' status; fall back to updatedAt date when paidDate is null
   const [feeRow] = await db
     .select({ total: sql<string>`coalesce(sum(${feesTable.paidAmount}), 0)` })
     .from(feesTable)
     .where(and(
       eq(feesTable.schoolId, schoolId),
-      eq(feesTable.status, "paid"),
-      gte(feesTable.paidDate, from),
-      lte(feesTable.paidDate, to),
+      sql`${feesTable.status} IN ('paid', 'partial')`,
+      sql`coalesce(${feesTable.paidAmount}::numeric, 0) > 0`,
+      sql`coalesce(${feesTable.paidDate}, date(${feesTable.updatedAt})) >= ${from}::date`,
+      sql`coalesce(${feesTable.paidDate}, date(${feesTable.updatedAt})) <= ${to}::date`,
     ));
 
   return parseFloat(manualRow?.total || "0") + parseFloat(feeRow?.total || "0");
@@ -74,14 +76,15 @@ router.get("/summary", requireAuth, async (req, res) => {
     getExpenseSum(schoolId, todayRange.from, todayRange.to),
     getExpenseSum(schoolId, monthRange.from, monthRange.to),
     getExpenseSum(schoolId, yearRange.from, yearRange.to),
-    // also pull fee collections from fees table (paid fees this month)
+    // also pull fee collections from fees table (paid/partial fees this month)
     db.select({ total: sql<string>`coalesce(sum(${feesTable.paidAmount}), 0)` })
       .from(feesTable)
       .where(and(
         eq(feesTable.schoolId, schoolId),
-        eq(feesTable.status, "paid"),
-        gte(feesTable.paidDate, monthRange.from),
-        lte(feesTable.paidDate, monthRange.to),
+        sql`${feesTable.status} IN ('paid', 'partial')`,
+        sql`coalesce(${feesTable.paidAmount}::numeric, 0) > 0`,
+        sql`coalesce(${feesTable.paidDate}, date(${feesTable.updatedAt})) >= ${monthRange.from}::date`,
+        sql`coalesce(${feesTable.paidDate}, date(${feesTable.updatedAt})) <= ${monthRange.to}::date`,
       )).then(r => parseFloat(r[0]?.total || "0")),
   ]);
 
@@ -155,12 +158,13 @@ router.get("/income", requireAuth, async (req, res) => {
   // Skip fee rows if type filter is something other than "all" or "fee"
   let feeRows: any[] = [];
   if (!type || type === "all" || type === "fee") {
-    const feeConditions = [
+    const feeConditions: any[] = [
       eq(feesTable.schoolId, schoolId),
-      eq(feesTable.status, "paid"),
+      sql`${feesTable.status} IN ('paid', 'partial')`,
+      sql`coalesce(${feesTable.paidAmount}::numeric, 0) > 0`,
     ];
-    if (from) feeConditions.push(gte(feesTable.paidDate, from));
-    if (to)   feeConditions.push(lte(feesTable.paidDate, to));
+    if (from) feeConditions.push(sql`coalesce(${feesTable.paidDate}, date(${feesTable.updatedAt})) >= ${from}::date`);
+    if (to)   feeConditions.push(sql`coalesce(${feesTable.paidDate}, date(${feesTable.updatedAt})) <= ${to}::date`);
 
     const paidFees = await db
       .select({
@@ -181,7 +185,7 @@ router.get("/income", requireAuth, async (req, res) => {
       id: `fee_${f.id}`,
       type: "fee",
       amount: f.paidAmount,
-      date: f.paidDate,
+      date: f.paidDate || (f.createdAt ? new Date(f.createdAt).toISOString().slice(0, 10) : null),
       category: "Fee Collection",
       receiptNo: null,
       description: `${(f.feeType || "Monthly").replace(/_/g, " ")} Fee — ${f.studentName || "Student"}`,
